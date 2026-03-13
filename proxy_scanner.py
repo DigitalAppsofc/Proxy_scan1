@@ -13,13 +13,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "1.7"
+VERSION = "1.8"
 
 # Escreva aqui as novidades sempre que for atualizar a ferramenta!
 CHANGELOG = """
-- Restaurada a interface clássica de progresso [10/100] com IP na tela!
-- Otimização visual para não travar o terminal (Termux/VPS).
-- Instruções mais claras para pular etapas com a tecla ENTER.
+- Novo Sistema de Salvamento Inteligente!
+- O script agora salva os proxies DIRETAMENTE na pasta 'Download' do seu celular.
+- Avisos visuais claros indicando o local exato onde o arquivo .txt foi parar.
 """
 
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
@@ -142,7 +142,7 @@ def update_system():
                         with open(__file__, 'w', encoding='utf-8') as f:
                             f.write(new_code)
                         print(f"\n{Fore.GREEN}[+] Atualização concluída com sucesso!")
-                        print(f"{Fore.WHITE}Por favor, abra a ferramenta novamente digitando: {Fore.CYAN}proxyscan")
+                        print(f"{Fore.WHITE}Por favor, abra a ferramenta novamente digitando: {Fore.CYAN}px")
                         sys.exit()
                     else:
                         print(f"{Fore.RED}[-] Atualização cancelada pelo usuário.")
@@ -194,15 +194,33 @@ def main():
             proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) {Fore.WHITE}[ENTER p/ Padrão: 1]{Fore.CYAN}: ").strip()
             if not proxy_type: proxy_type = '1'
             
-            # Avisos claros de que o usuário pode só dar ENTER
             threads_input = input(f"Quantidade de Threads (Velocidade) {Fore.WHITE}[ENTER p/ Padrão: 200]{Fore.CYAN}: ").strip()
             max_threads = int(threads_input) if threads_input.isdigit() else 200
             
             timeout_input = input(f"Timeout em segundos {Fore.WHITE}[ENTER p/ Padrão: 5]{Fore.CYAN}: ").strip()
             timeout_val = int(timeout_input) if timeout_input.isdigit() else 5
             
-            filename = input(f"\nNome do arquivo para salvar {Fore.WHITE}[ENTER p/ Padrão: vivos.txt]{Fore.CYAN}: ").strip()
-            if not filename: filename = "vivos.txt"
+            filename_input = input(f"\nNome do arquivo para salvar {Fore.WHITE}[ENTER p/ Padrão: vivos.txt]{Fore.CYAN}: ").strip()
+            filename = filename_input if filename_input else "vivos.txt"
+            
+            # --- SISTEMA INTELIGENTE DE DIRETÓRIO ---
+            filepath = filename
+            print(f"\n{Fore.CYAN}--- Local de Salvamento ---")
+            
+            # Detecta se está rodando no Termux (Android)
+            if os.path.exists('/data/data/com.termux'):
+                download_dir = '/sdcard/Download'
+                # Verifica se a pasta existe e tem permissão de escrita
+                if os.path.exists(download_dir) and os.access(download_dir, os.W_OK):
+                    filepath = os.path.join(download_dir, filename)
+                    print(f"{Fore.GREEN}[+] Sucesso: {Fore.WHITE}Os proxies serão salvos direto na sua pasta de Downloads!")
+                else:
+                    print(f"{Fore.YELLOW}[!] Aviso: {Fore.WHITE}Salvando na pasta interna do sistema.")
+                    print(f"{Fore.RED}[!] DICA: Para salvar na galeria/downloads, rode o comando 'termux-setup-storage' depois.{Fore.WHITE}")
+            else:
+                # Se for VPS ou Linux normal
+                print(f"{Fore.GREEN}[+] Sucesso: {Fore.WHITE}Os proxies serão salvos na pasta atual (VPS/Linux).")
+            # ----------------------------------------
             
             ips_to_test = generate_ips(base_ip)
             testes_totais = []
@@ -237,7 +255,6 @@ def main():
                         except Exception:
                             pass
                         
-                        # ATUALIZA A TELA A CADA 15 TESTES (Velocidade + Visual de Progresso)
                         if concluidos % 15 == 0 or concluidos == total:
                             progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testando: {ip}:{port} | {Fore.GREEN}Encontrados: {encontrados}\033[K"
                             sys.stdout.write(progresso)
@@ -249,10 +266,11 @@ def main():
             
             print("\n")
             if working_proxies:
-                with open(filename, 'a', encoding='utf-8') as f:
+                with open(filepath, 'a', encoding='utf-8') as f:
                     for p in working_proxies:
                         f.write(p + "\n")
-                print(f"{Fore.GREEN}[+] Busca concluída ou parada! {len(working_proxies)} proxies salvos em {filename}")
+                print(f"{Fore.GREEN}[+] Busca concluída ou parada! {len(working_proxies)} proxies salvos com sucesso.")
+                print(f"{Fore.YELLOW}[*] Arquivo salvo em: {Fore.WHITE}{filepath}")
             else:
                 print(f"{Fore.RED}[-] Nenhum proxy funcionando encontrado ou salvo.")
             
