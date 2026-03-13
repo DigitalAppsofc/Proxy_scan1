@@ -3,16 +3,16 @@ import sys
 import time
 import random
 import requests
-import socket
+import urllib3
 import concurrent.futures
 from colorama import init, Fore, Style
 
-# Inicializa as cores para funcionar em qualquer terminal
+# Desativa avisos de conexões inseguras que poluem o terminal
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "1.1"
-# URL RAW do seu GitHub onde o código atualizado ficará hospedado
+VERSION = "1.4"
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 
 def clear_screen():
@@ -35,17 +35,16 @@ def show_banner():
     print(banner)
 
 def get_country(ip):
-    """Busca o país do IP usando uma API gratuita"""
     try:
-        res = requests.get(f"http://ip-api.com/json/{ip}", timeout=3).json()
+        res = requests.get(f"http://ip-api.com/json/{ip}", timeout=4).json()
         if res['status'] == 'success':
             return res['country']
     except:
         pass
     return "Desconhecido"
 
-def test_proxy(ip, port, proxy_type, timeout=5):
-    """Testa se o proxy está funcionando, retorna MS e protocolo exato"""
+def test_proxy(ip, port, proxy_type, timeout=10):
+    """Dupla checagem: Teste ultra-robusto para ver se o proxy funciona"""
     start_time = time.time()
     
     protocols_to_test = []
@@ -57,22 +56,30 @@ def test_proxy(ip, port, proxy_type, timeout=5):
 
     for proto_name, proxy_url in protocols_to_test:
         proxies = {"http": proxy_url, "https": proxy_url}
+        
+        # Teste 1: Gstatic (Super rápido, não bloqueia requisições em massa)
         try:
-            res = requests.get("http://httpbin.org/ip", proxies=proxies, timeout=timeout)
-            if res.status_code == 200:
+            res = requests.get("http://gstatic.com/generate_204", proxies=proxies, timeout=timeout, verify=False)
+            if res.status_code in [204, 200]:
                 ms = int((time.time() - start_time) * 1000)
-                country = get_country(ip)
-                return True, proto_name, ms, country
+                return True, proto_name, ms, get_country(ip)
+        except:
+            pass
+            
+        # Teste 2: Example.com (Fallback, caso o proxy bloqueie domínios do Google)
+        try:
+            res2 = requests.get("http://example.com", proxies=proxies, timeout=timeout, verify=False)
+            if res2.status_code == 200:
+                ms = int((time.time() - start_time) * 1000)
+                return True, proto_name, ms, get_country(ip)
         except:
             continue
             
     return False, None, 0, None
 
 def generate_random_base():
-    """Gera uma base de IP aleatória e válida na internet"""
     while True:
         oct1 = random.randint(1, 223)
-        # Pula IPs de rede local/privada e loopback
         if oct1 in [10, 127, 169, 172, 192]: 
             continue
         oct2 = random.randint(0, 255)
@@ -80,19 +87,29 @@ def generate_random_base():
         return f"{oct1}.{oct2}.{oct3}"
 
 def generate_ips(base_ip):
-    """Gera uma lista de 256 IPs baseada nos primeiros octetos"""
-    parts = base_ip.strip().split('.')
-    if len(parts) >= 4:
-        return [base_ip]
-    
-    base = '.'.join(parts[:3])
+    """Novo Gerador Inteligente que formata IPs 100% válidos"""
+    parts = [p for p in base_ip.strip().split('.') if p] 
     ips = []
-    for i in range(256):
-        ips.append(f"{base}.{i}")
+    
+    if len(parts) >= 4:
+        return ['.'.join(parts[:4])]
+    elif len(parts) == 3:
+        base = '.'.join(parts)
+        for i in range(256):
+            ips.append(f"{base}.{i}")
+    elif len(parts) == 2:
+        base = '.'.join(parts)
+        for i in range(256):
+            for j in range(256):
+                ips.append(f"{base}.{i}.{j}")
+    elif len(parts) == 1:
+        base = f"{parts[0]}.0"
+        for i in range(256):
+            for j in range(256):
+                ips.append(f"{base}.{i}.{j}")
     return ips
 
 def update_system():
-    """Baixa a nova versão do script e substitui a atual"""
     print(f"\n{Fore.YELLOW}[*] Verificando atualizações online...")
     try:
         response = requests.get(UPDATE_URL, timeout=10)
@@ -124,10 +141,12 @@ def main():
         
         if choice == '1':
             print(f"\n{Fore.CYAN}--- Geração de IPs ---")
-            print(f"Exemplo de base: {Fore.GREEN}190.32.15 {Fore.WHITE}(Gera de .0 até .255)")
-            print(f"Digite {Fore.YELLOW}R{Fore.WHITE} para gerar uma base aleatória válida.")
+            print(f"{Fore.GREEN}Exemplos:")
+            print(f"{Fore.WHITE}12.50.107     {Fore.YELLOW}-> (Gera 256 IPs)")
+            print(f"{Fore.WHITE}209.197       {Fore.YELLOW}-> (Gera 65.536 IPs)")
+            print(f"{Fore.WHITE}Digite {Fore.YELLOW}R{Fore.WHITE} para gerar uma base aleatória válida.")
             
-            base_input = input("Digite a base do IP ou R: ").strip()
+            base_input = input("\nBase do IP ou R: ").strip()
             if base_input.upper() == 'R':
                 base_ip = generate_random_base()
                 print(f"{Fore.GREEN}[+] Base gerada automaticamente: {base_ip}")
@@ -136,26 +155,27 @@ def main():
 
             print(f"\n{Fore.CYAN}--- Portas para Teste ---")
             print(f"Digite uma porta {Fore.WHITE}(ex: 8080){Fore.CYAN}, várias {Fore.WHITE}(80,8080,3128){Fore.CYAN}")
-            print(f"Ou digite {Fore.YELLOW}ALL{Fore.CYAN} para testar as portas proxy mais comuns.")
+            print(f"Ou dê {Fore.YELLOW}ENTER (ALL){Fore.CYAN} para testar as portas proxy mais comuns.")
             
             porta_input = input("Portas: ").strip().lower()
-            if porta_input == 'all':
+            if porta_input == 'all' or porta_input == '':
                 portas = ['80', '8080', '3128', '1080', '443', '8000', '9090']
                 print(f"{Fore.GREEN}[+] Portas selecionadas: {', '.join(portas)}")
             else:
                 portas = [p.strip() for p in porta_input.split(',')]
             
-            print(f"\n{Fore.CYAN}--- Tipo de Proxy ---")
-            print("1 - Todos (HTTP, SOCKS4, SOCKS5)")
+            print(f"\n{Fore.CYAN}--- Protocolos (Tipo de Proxy) ---")
+            print("1 - Todos (HTTP, SOCKS4, SOCKS5) [Recomendado]")
             print("2 - Apenas HTTP/HTTPS")
             print("3 - Apenas SOCKS")
-            proxy_type = input("Escolha o que deseja salvar (1/2/3): ")
+            proxy_type = input("Escolha (1/2/3) [Padrão: 1]: ").strip()
+            if not proxy_type:
+                proxy_type = '1'
             
-            filename = input("\nNome do arquivo para salvar (ex: vivos.txt): ")
+            filename = input("\nNome do arquivo para salvar (ex: vivos.txt): ").strip()
             if not filename:
                 filename = "vivos.txt"
             
-            # Gera a lista de todas as combinações de IP e Porta
             ips_to_test = generate_ips(base_ip)
             testes_totais = []
             for ip in ips_to_test:
@@ -163,42 +183,50 @@ def main():
                     testes_totais.append((ip, port))
             
             total = len(testes_totais)
-            print(f"\n{Fore.YELLOW}[*] Iniciando {total} testes com Threads...\n")
+            print(f"\n{Fore.YELLOW}[*] Gerados {len(ips_to_test)} IPs válidos!")
+            print(f"{Fore.RED}[!] DICA: Pressione CTRL+C a qualquer momento para cancelar o scanner e salvar os resultados.{Fore.WHITE}\n")
             
             working_proxies = []
             concluidos = 0
             encontrados = 0
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-                futures = {executor.submit(test_proxy, ip, port, proxy_type): (ip, port) for ip, port in testes_totais}
-                
-                for future in concurrent.futures.as_completed(futures):
-                    ip, port = futures[future]
-                    concluidos += 1
+            try:
+                # O bloco de scanner agora está protegido pelo Try/Except para interrupção segura
+                with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+                    futures = {executor.submit(test_proxy, ip, port, proxy_type): (ip, port) for ip, port in testes_totais}
                     
-                    # Atualiza a linha de progresso dinamicamente (usa \033[K para limpar o resto da linha)
-                    progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testando: {ip}:{port} | {Fore.GREEN}Encontrados: {encontrados}\033[K"
-                    print(progresso, end="", flush=True)
-                    
-                    try:
-                        success, proto, ms, country = future.result()
-                        if success:
-                            encontrados += 1
-                            proxy_str = f"{ip}:{port} | {proto} | {ms}ms | {country}"
-                            # Apaga a linha de progresso, imprime o LIVE e volta com a linha de progresso
-                            print(f"\r\033[K{Fore.GREEN}[+] LIVE: {proxy_str}")
-                            working_proxies.append(proxy_str)
-                    except Exception:
-                        pass
+                    for future in concurrent.futures.as_completed(futures):
+                        ip, port = futures[future]
+                        concluidos += 1
+                        
+                        try:
+                            success, proto, ms, country = future.result()
+                            if success:
+                                encontrados += 1
+                                proxy_str = f"{ip}:{port} | {proto} | {ms}ms | {country}"
+                                sys.stdout.write(f"\r\033[K{Fore.GREEN}[+] LIVE: {proxy_str}\n")
+                                working_proxies.append(proxy_str)
+                        except Exception:
+                            pass
+                        
+                        progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testados... | {Fore.GREEN}Encontrados: {encontrados}\033[K"
+                        sys.stdout.write(progresso)
+                        sys.stdout.flush()
+                        
+            except KeyboardInterrupt:
+                # Quando o usuário aperta CTRL+C, ele cai direto aqui!
+                sys.stdout.write(f"\n\n{Fore.RED}[!] Scanner interrompido pelo usuário! Salvando os proxies encontrados...{Fore.WHITE}")
+                # A função cancela a Thread e continua o código normalmente para salvar
+                executor.shutdown(wait=False, cancel_futures=True) if sys.version_info >= (3, 9) else executor.shutdown(wait=False)
             
-            print("\n") # Quebra de linha final após o loop
+            print("\n") # Quebra de linha final
             if working_proxies:
                 with open(filename, 'a', encoding='utf-8') as f:
                     for p in working_proxies:
                         f.write(p + "\n")
-                print(f"{Fore.GREEN}[+] Busca concluída! {len(working_proxies)} proxies salvos em {filename}")
+                print(f"{Fore.GREEN}[+] Busca concluída ou parada! {len(working_proxies)} proxies salvos em {filename}")
             else:
-                print(f"{Fore.RED}[-] Nenhum proxy funcionando encontrado nessa rodada.")
+                print(f"{Fore.RED}[-] Nenhum proxy funcionando encontrado ou salvo.")
             
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar ao menu...")
             
@@ -206,7 +234,7 @@ def main():
             show_banner()
             print(f"{Fore.CYAN}Sobre a ferramenta:")
             print(f"{Fore.WHITE}Proxy Scanner e Checker de alta velocidade usando Multi-Threading.")
-            print(f"Funcionalidades: Gerador IP Random, Múltiplas Portas, GeoIP, Ping (ms), Auto-Update.")
+            print(f"Funcionalidades: Gerador IP Random, Múltiplas Portas, GeoIP, Ping (ms), Auto-Update e Interrupção Segura.")
             print(f"\n{Fore.GREEN}Desenvolvido exclusivamente por Digital Apps©")
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
             
@@ -224,5 +252,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n{Fore.RED}Script interrompido pelo usuário.")
+        # Pressionar CTRL+C no menu principal sai da ferramenta inteira
+        print(f"\n{Fore.RED}Script fechado pelo usuário.")
         sys.exit()
