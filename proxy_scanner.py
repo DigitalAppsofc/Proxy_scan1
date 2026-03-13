@@ -12,7 +12,7 @@ init(autoreset=True)
 # Configurações da Ferramenta
 VERSION = "1.0"
 # URL RAW do seu GitHub onde o código atualizado ficará hospedado
-UPDATE_URL = "https://proxy-scan.vercel.app/proxy_scanner.py" 
+UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
