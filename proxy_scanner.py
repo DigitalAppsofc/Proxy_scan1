@@ -12,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "1.4"
+VERSION = "1.5"
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 
 def clear_screen():
@@ -36,39 +36,36 @@ def show_banner():
 
 def get_country(ip):
     try:
-        res = requests.get(f"http://ip-api.com/json/{ip}", timeout=4).json()
+        res = requests.get(f"http://ip-api.com/json/{ip}", timeout=3).json()
         if res['status'] == 'success':
             return res['country']
     except:
         pass
     return "Desconhecido"
 
-def test_proxy(ip, port, proxy_type, timeout=10):
-    """Dupla checagem: Teste ultra-robusto para ver se o proxy funciona"""
+def test_proxy(ip, port, proxy_type, timeout_val):
     start_time = time.time()
     
     protocols_to_test = []
-    if proxy_type in ['1', '2']: # All ou HTTP
+    if proxy_type in ['1', '2']: 
         protocols_to_test.append(('HTTP', f"http://{ip}:{port}"))
-    if proxy_type in ['1', '3']: # All ou SOCKS
+    if proxy_type in ['1', '3']: 
         protocols_to_test.append(('SOCKS5', f"socks5://{ip}:{port}"))
         protocols_to_test.append(('SOCKS4', f"socks4://{ip}:{port}"))
 
     for proto_name, proxy_url in protocols_to_test:
         proxies = {"http": proxy_url, "https": proxy_url}
         
-        # Teste 1: Gstatic (Super rápido, não bloqueia requisições em massa)
         try:
-            res = requests.get("http://gstatic.com/generate_204", proxies=proxies, timeout=timeout, verify=False)
+            res = requests.get("http://gstatic.com/generate_204", proxies=proxies, timeout=timeout_val, verify=False)
             if res.status_code in [204, 200]:
                 ms = int((time.time() - start_time) * 1000)
                 return True, proto_name, ms, get_country(ip)
         except:
             pass
             
-        # Teste 2: Example.com (Fallback, caso o proxy bloqueie domínios do Google)
         try:
-            res2 = requests.get("http://example.com", proxies=proxies, timeout=timeout, verify=False)
+            res2 = requests.get("http://example.com", proxies=proxies, timeout=timeout_val, verify=False)
             if res2.status_code == 200:
                 ms = int((time.time() - start_time) * 1000)
                 return True, proto_name, ms, get_country(ip)
@@ -87,7 +84,6 @@ def generate_random_base():
         return f"{oct1}.{oct2}.{oct3}"
 
 def generate_ips(base_ip):
-    """Novo Gerador Inteligente que formata IPs 100% válidos"""
     parts = [p for p in base_ip.strip().split('.') if p] 
     ips = []
     
@@ -164,17 +160,19 @@ def main():
             else:
                 portas = [p.strip() for p in porta_input.split(',')]
             
-            print(f"\n{Fore.CYAN}--- Protocolos (Tipo de Proxy) ---")
-            print("1 - Todos (HTTP, SOCKS4, SOCKS5) [Recomendado]")
-            print("2 - Apenas HTTP/HTTPS")
-            print("3 - Apenas SOCKS")
-            proxy_type = input("Escolha (1/2/3) [Padrão: 1]: ").strip()
-            if not proxy_type:
-                proxy_type = '1'
+            print(f"\n{Fore.CYAN}--- Protocolos e Desempenho ---")
+            proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) {Fore.WHITE}[Padrão: 1]{Fore.CYAN}: ").strip()
+            if not proxy_type: proxy_type = '1'
             
-            filename = input("\nNome do arquivo para salvar (ex: vivos.txt): ").strip()
-            if not filename:
-                filename = "vivos.txt"
+            # NOVAS OPÇÕES DE DESEMPENHO
+            threads_input = input(f"Quantidade de Threads (Velocidade) {Fore.WHITE}[Padrão: 200]{Fore.CYAN}: ").strip()
+            max_threads = int(threads_input) if threads_input.isdigit() else 200
+            
+            timeout_input = input(f"Timeout em segundos {Fore.WHITE}[Padrão: 5]{Fore.CYAN}: ").strip()
+            timeout_val = int(timeout_input) if timeout_input.isdigit() else 5
+            
+            filename = input(f"\nNome do arquivo para salvar {Fore.WHITE}[Padrão: vivos.txt]{Fore.CYAN}: ").strip()
+            if not filename: filename = "vivos.txt"
             
             ips_to_test = generate_ips(base_ip)
             testes_totais = []
@@ -184,16 +182,16 @@ def main():
             
             total = len(testes_totais)
             print(f"\n{Fore.YELLOW}[*] Gerados {len(ips_to_test)} IPs válidos!")
-            print(f"{Fore.RED}[!] DICA: Pressione CTRL+C a qualquer momento para cancelar o scanner e salvar os resultados.{Fore.WHITE}\n")
+            print(f"{Fore.YELLOW}[*] Iniciando {total} testes com {max_threads} Threads...\n")
+            print(f"{Fore.RED}[!] DICA: Pressione CTRL+C a qualquer momento para cancelar e salvar os resultados.{Fore.WHITE}\n")
             
             working_proxies = []
             concluidos = 0
             encontrados = 0
             
             try:
-                # O bloco de scanner agora está protegido pelo Try/Except para interrupção segura
-                with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-                    futures = {executor.submit(test_proxy, ip, port, proxy_type): (ip, port) for ip, port in testes_totais}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+                    futures = {executor.submit(test_proxy, ip, port, proxy_type, timeout_val): (ip, port) for ip, port in testes_totais}
                     
                     for future in concurrent.futures.as_completed(futures):
                         ip, port = futures[future]
@@ -209,17 +207,17 @@ def main():
                         except Exception:
                             pass
                         
-                        progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testados... | {Fore.GREEN}Encontrados: {encontrados}\033[K"
-                        sys.stdout.write(progresso)
-                        sys.stdout.flush()
+                        # ATUALIZA A TELA APENAS A CADA 20 TESTES (Evita o travamento do terminal)
+                        if concluidos % 20 == 0 or concluidos == total:
+                            progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testados... | {Fore.GREEN}Encontrados: {encontrados}\033[K"
+                            sys.stdout.write(progresso)
+                            sys.stdout.flush()
                         
             except KeyboardInterrupt:
-                # Quando o usuário aperta CTRL+C, ele cai direto aqui!
                 sys.stdout.write(f"\n\n{Fore.RED}[!] Scanner interrompido pelo usuário! Salvando os proxies encontrados...{Fore.WHITE}")
-                # A função cancela a Thread e continua o código normalmente para salvar
                 executor.shutdown(wait=False, cancel_futures=True) if sys.version_info >= (3, 9) else executor.shutdown(wait=False)
             
-            print("\n") # Quebra de linha final
+            print("\n")
             if working_proxies:
                 with open(filename, 'a', encoding='utf-8') as f:
                     for p in working_proxies:
@@ -252,6 +250,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        # Pressionar CTRL+C no menu principal sai da ferramenta inteira
         print(f"\n{Fore.RED}Script fechado pelo usuário.")
         sys.exit()
