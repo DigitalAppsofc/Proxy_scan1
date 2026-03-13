@@ -4,6 +4,7 @@ import time
 import random
 import requests
 import urllib3
+import re
 import concurrent.futures
 from colorama import init, Fore, Style
 
@@ -12,7 +13,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "1.5"
+VERSION = "1.7"
+
+# Escreva aqui as novidades sempre que for atualizar a ferramenta!
+CHANGELOG = """
+- Restaurada a interface clássica de progresso [10/100] com IP na tela!
+- Otimização visual para não travar o terminal (Termux/VPS).
+- Instruções mais claras para pular etapas com a tecla ENTER.
+"""
+
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 
 def clear_screen():
@@ -106,23 +115,44 @@ def generate_ips(base_ip):
     return ips
 
 def update_system():
-    print(f"\n{Fore.YELLOW}[*] Verificando atualizações online...")
+    print(f"\n{Fore.YELLOW}[*] Conectando ao servidor da Digital Apps...")
     try:
         response = requests.get(UPDATE_URL, timeout=10)
         if response.status_code == 200:
             new_code = response.text
-            if f'VERSION = "{VERSION}"' in new_code:
-                print(f"{Fore.GREEN}[+] Você já está na versão mais recente!")
+            
+            version_match = re.search(r'VERSION\s*=\s*"([^"]+)"', new_code)
+            if version_match:
+                new_version = version_match.group(1)
+                
+                if new_version == VERSION:
+                    print(f"{Fore.GREEN}[+] Você já está na versão mais recente ({VERSION})!")
+                else:
+                    print(f"{Fore.CYAN}[+] Nova versão encontrada: {Fore.GREEN}v{new_version}")
+                    
+                    changelog_match = re.search(r'CHANGELOG\s*=\s*\"\"\"(.*?)\"\"\"', new_code, re.DOTALL)
+                    if changelog_match:
+                        print(f"\n{Fore.YELLOW}=== O que há de novo ===")
+                        print(f"{Fore.WHITE}{changelog_match.group(1).strip()}")
+                        print(f"{Fore.YELLOW}========================")
+                    
+                    confirm = input(f"\n{Fore.YELLOW}Deseja instalar a atualização agora? (S/N): {Fore.WHITE}").strip().upper()
+                    
+                    if confirm == 'S':
+                        with open(__file__, 'w', encoding='utf-8') as f:
+                            f.write(new_code)
+                        print(f"\n{Fore.GREEN}[+] Atualização concluída com sucesso!")
+                        print(f"{Fore.WHITE}Por favor, abra a ferramenta novamente digitando: {Fore.CYAN}proxyscan")
+                        sys.exit()
+                    else:
+                        print(f"{Fore.RED}[-] Atualização cancelada pelo usuário.")
             else:
-                print(f"{Fore.CYAN}[+] Nova versão encontrada! Baixando...")
-                with open(__file__, 'w', encoding='utf-8') as f:
-                    f.write(new_code)
-                print(f"{Fore.GREEN}[+] Atualização concluída com sucesso! Reinicie o script.")
-                sys.exit()
+                print(f"{Fore.RED}[-] Não foi possível ler a versão no servidor.")
         else:
             print(f"{Fore.RED}[-] Erro ao acessar o servidor de atualização.")
     except Exception as e:
         print(f"{Fore.RED}[-] Falha na atualização: {e}")
+    
     input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
 
 def main():
@@ -161,17 +191,17 @@ def main():
                 portas = [p.strip() for p in porta_input.split(',')]
             
             print(f"\n{Fore.CYAN}--- Protocolos e Desempenho ---")
-            proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) {Fore.WHITE}[Padrão: 1]{Fore.CYAN}: ").strip()
+            proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) {Fore.WHITE}[ENTER p/ Padrão: 1]{Fore.CYAN}: ").strip()
             if not proxy_type: proxy_type = '1'
             
-            # NOVAS OPÇÕES DE DESEMPENHO
-            threads_input = input(f"Quantidade de Threads (Velocidade) {Fore.WHITE}[Padrão: 200]{Fore.CYAN}: ").strip()
+            # Avisos claros de que o usuário pode só dar ENTER
+            threads_input = input(f"Quantidade de Threads (Velocidade) {Fore.WHITE}[ENTER p/ Padrão: 200]{Fore.CYAN}: ").strip()
             max_threads = int(threads_input) if threads_input.isdigit() else 200
             
-            timeout_input = input(f"Timeout em segundos {Fore.WHITE}[Padrão: 5]{Fore.CYAN}: ").strip()
+            timeout_input = input(f"Timeout em segundos {Fore.WHITE}[ENTER p/ Padrão: 5]{Fore.CYAN}: ").strip()
             timeout_val = int(timeout_input) if timeout_input.isdigit() else 5
             
-            filename = input(f"\nNome do arquivo para salvar {Fore.WHITE}[Padrão: vivos.txt]{Fore.CYAN}: ").strip()
+            filename = input(f"\nNome do arquivo para salvar {Fore.WHITE}[ENTER p/ Padrão: vivos.txt]{Fore.CYAN}: ").strip()
             if not filename: filename = "vivos.txt"
             
             ips_to_test = generate_ips(base_ip)
@@ -207,9 +237,9 @@ def main():
                         except Exception:
                             pass
                         
-                        # ATUALIZA A TELA APENAS A CADA 20 TESTES (Evita o travamento do terminal)
-                        if concluidos % 20 == 0 or concluidos == total:
-                            progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testados... | {Fore.GREEN}Encontrados: {encontrados}\033[K"
+                        # ATUALIZA A TELA A CADA 15 TESTES (Velocidade + Visual de Progresso)
+                        if concluidos % 15 == 0 or concluidos == total:
+                            progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testando: {ip}:{port} | {Fore.GREEN}Encontrados: {encontrados}\033[K"
                             sys.stdout.write(progresso)
                             sys.stdout.flush()
                         
