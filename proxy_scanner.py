@@ -40,16 +40,15 @@ def check_for_updates_silently():
 
 def show_banner():
     clear_screen()
-    # Novo Letreiro desenhado especialmente para caber na tela do celular!
     banner = f"""{Fore.CYAN}{Style.BRIGHT}
-   ____  ____  __  _  _  _  _ 
-  (  _ \\(  _ \\/  \\( \\/ )( \\/ )
-   ) __/ )   (  O ))  (  \\  / 
-  (__)  (_)\\_)\\__/(_/\\_) (__) 
-    ___  ___  __  __ _  __ _  ____  ____ 
-   / __)/ __)/  \\(  ( \\(  ( \\(  __)(  _ \\
-   \\__ \\\\__ (  O )    /    / ) _)  )   /
-   (___/(__/ \\__/\\_)__)\\_)__)(____)(__\\_)
+  ____  ____  _____  _  _  _  _ 
+ (  _ \(  _ \(  _  )( \/ )( \/ )
+  )___/ )   / )(_)(  )  (  \  / 
+ (__)  (_)\_)(_____)(_/\_) (__) 
+  ____   ___   __   __ _  __ _  ____  ____ 
+ / ___) / __) / _\ (  ( \(  ( \(  __)(  _ \\
+ \___ \( (__ /    \/    //    / ) _)  )   /
+ (____/ \___)\_/\_/\_)__)\_)__)(____)(__\_)
     
     {Fore.WHITE}Versão {VERSION} - By {Fore.GREEN}@Digital_Apps
     """
@@ -57,6 +56,7 @@ def show_banner():
     
     if UPDATE_AVAILABLE:
         print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 4.{Style.RESET_ALL}\n")
+        
 
 def get_country(ip):
     try:
