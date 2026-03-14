@@ -13,7 +13,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "2.0"
+VERSION = "1.9"
 
 CHANGELOG = """
 - Letreiro Gigante (ASCII) atualizado para PROXY SCANNER!
