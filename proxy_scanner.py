@@ -11,10 +11,19 @@ import subprocess
 import zipfile
 from colorama import init, Fore, Style
 
+# Desativa avisos de conexões inseguras que poluem o terminal
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
-VERSION = "3.0 PRO"
+# Configurações da Ferramenta
+VERSION = "3.1 PRO"
+
+CHANGELOG = """
+- Letreiro reduzido para melhor visualização em telas menores!
+- Novo Módulo: Scanner IPTV integrado no painel com suporte a múltiplos hosts simultâneos.
+- Gerenciador Automático para Bots de Telegram (Proxy e IPTV).
+- Mantido 100% das funções originais de Proxy e Cloudflare.
+"""
 
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
 UPDATE_AVAILABLE = False
@@ -28,7 +37,8 @@ def check_for_updates_silently():
         res = requests.get(UPDATE_URL, timeout=2)
         if f'VERSION = "{VERSION}"' not in res.text:
             UPDATE_AVAILABLE = True
-    except: pass
+    except:
+        pass
 
 def show_banner():
     clear_screen()
@@ -42,6 +52,7 @@ def show_banner():
     {Fore.YELLOW}Ferramentas IPTV & Proxies
     """
     print(banner)
+    
     if UPDATE_AVAILABLE:
         print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 6.{Style.RESET_ALL}\n")
 
@@ -365,13 +376,29 @@ def update_system():
                 if new_version == VERSION:
                     print(f"{Fore.GREEN}[+] Você já está na versão mais recente ({VERSION})!")
                 else:
-                    print(f"{Fore.CYAN}[+] Nova versão: {Fore.GREEN}v{new_version}")
-                    confirm = input(f"\n{Fore.YELLOW}Instalar agora? (S/N): {Fore.WHITE}").strip().upper()
+                    print(f"{Fore.CYAN}[+] Nova versão encontrada: {Fore.GREEN}v{new_version}")
+                    
+                    # === DE VOLTA: EXIBINDO O CHANGELOG ===
+                    changelog_match = re.search(r'CHANGELOG\s*=\s*\"\"\"(.*?)\"\"\"', new_code, re.DOTALL)
+                    if changelog_match:
+                        print(f"\n{Fore.YELLOW}=== O que há de novo ===")
+                        print(f"{Fore.WHITE}{changelog_match.group(1).strip()}")
+                        print(f"{Fore.YELLOW}========================")
+                    
+                    confirm = input(f"\n{Fore.YELLOW}Deseja instalar a atualização agora? (S/N): {Fore.WHITE}").strip().upper()
                     if confirm == 'S':
                         with open(__file__, 'w', encoding='utf-8') as f: f.write(new_code)
-                        print(f"\n{Fore.GREEN}[+] Atualizado! Abra o script novamente.")
+                        print(f"\n{Fore.GREEN}[+] Atualização concluída com sucesso!")
+                        print(f"{Fore.WHITE}Por favor, abra a ferramenta novamente digitando: {Fore.CYAN}px")
                         sys.exit()
-    except Exception as e: print(f"{Fore.RED}[-] Falha: {e}")
+                    else:
+                        print(f"{Fore.RED}[-] Atualização cancelada pelo usuário.")
+            else:
+                print(f"{Fore.RED}[-] Não foi possível ler a versão no servidor.")
+        else:
+            print(f"{Fore.RED}[-] Erro ao acessar o servidor de atualização.")
+    except Exception as e: 
+        print(f"{Fore.RED}[-] Falha na atualização: {e}")
     input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
 
 # ==========================================
