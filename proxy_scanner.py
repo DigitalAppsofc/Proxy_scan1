@@ -16,13 +16,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "3.1 PRO"
+VERSION = "3.2 PRO"
 
 CHANGELOG = """
+- Remoção do curl_cffi para instalação limpa e imediata no Termux!
 - Letreiro reduzido para melhor visualização em telas menores!
 - Novo Módulo: Scanner IPTV integrado no painel com suporte a múltiplos hosts simultâneos.
 - Gerenciador Automático para Bots de Telegram (Proxy e IPTV).
-- Mantido 100% das funções originais de Proxy e Cloudflare.
+- Mantido 100% das funções originais de Proxy e Cloudflare Checker.
 """
 
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
@@ -116,7 +117,6 @@ def run_iptv_scanner():
         print(f"{Fore.RED}[-] Nenhuma conta válida (user:pass) encontrada.")
         return
 
-    # Monta a lista de testes cruzando todos os hosts com todas as contas
     testes_totais = []
     for host in hosts:
         for linha in linhas:
@@ -191,12 +191,15 @@ def config_and_run_iptv_bot():
         try:
             with open("main.py", "r", encoding="utf-8") as f:
                 conteudo = f.read()
+            
             conteudo = re.sub(r'API_TOKEN\s*=\s*["\'].*?["\']', f'API_TOKEN = "{token}"', conteudo)
             conteudo = re.sub(r'ADMIN_ID\s*=\s*["\'].*?["\']', f'ADMIN_ID = "{admin_id}"', conteudo)
+            
             with open("main.py", "w", encoding="utf-8") as f:
                 f.write(conteudo)
             print(f"{Fore.GREEN}[+] Credenciais salvas com sucesso no main.py!")
-        except Exception as e: print(f"{Fore.RED}[-] Erro ao salvar credenciais: {e}")
+        except Exception as e: 
+            print(f"{Fore.RED}[-] Erro ao configurar o arquivo: {e}")
 
     print(f"\n{Fore.YELLOW}[*] Iniciando o Bot IPTV...")
     time.sleep(1)
@@ -236,7 +239,7 @@ def config_and_run_proxy_bot():
     input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
 
 # ==========================================
-# 3. MÓDULOS ORIGINAIS DE PROXY
+# 3. MÓDULOS ORIGINAIS DE PROXY & CLOUDFLARE
 # ==========================================
 def get_country(ip):
     try:
@@ -294,6 +297,21 @@ def generate_ips(base_ip):
             for j in range(256): ips.append(f"{base}.{i}.{j}")
     return ips
 
+def check_cloudflare_proxy(proxy_str, url, timeout_val):
+    proxy_clean = proxy_str.split('|')[0].strip()
+    proxy_dict = {"http": f"http://{proxy_clean}", "https": f"http://{proxy_clean}"}
+    try:
+        r = requests.get(url, proxies=proxy_dict, timeout=timeout_val, headers={"User-Agent": "Mozilla/5.0"}, verify=False)
+        text = r.text.lower()
+        if r.status_code == 200 and "attention required" not in text and "cloudflare" not in text:
+            return "OK", proxy_clean
+        elif r.status_code in [403, 1020, 429] or "cloudflare" in text:
+            return "BLOCK", proxy_clean
+        else:
+            return "FAIL", proxy_clean
+    except:
+        return "DEAD", proxy_clean
+
 def run_cf_checker():
     print(f"\n{Fore.CYAN}--- Cloudflare Proxy Checker ---")
     url = input(f"\n{Fore.YELLOW}Digite o site alvo (ex: https://site.com): {Fore.WHITE}").strip()
@@ -336,17 +354,6 @@ def run_cf_checker():
         
     ok_count, concluidos, total = 0, 0, len(proxies_list)
     print(f"\n{Fore.YELLOW}[*] Testando {total} proxies...")
-    
-    def check_cloudflare_proxy(proxy_str, url, timeout_val):
-        proxy_clean = proxy_str.split('|')[0].strip()
-        proxy_dict = {"http": f"http://{proxy_clean}", "https": f"http://{proxy_clean}"}
-        try:
-            r = requests.get(url, proxies=proxy_dict, timeout=timeout_val, headers={"User-Agent": "Mozilla/5.0"}, verify=False)
-            text = r.text.lower()
-            if r.status_code == 200 and "attention required" not in text and "cloudflare" not in text:
-                return "OK", proxy_clean
-            return "BLOCK", proxy_clean
-        except: return "DEAD", proxy_clean
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = {executor.submit(check_cloudflare_proxy, p, url, 10): p for p in proxies_list}
@@ -361,7 +368,9 @@ def run_cf_checker():
             sys.stdout.write(progresso)
             sys.stdout.flush()
 
-    print(f"\n\n{Fore.GREEN}[+] Verificação Cloudflare finalizada! Salvo em: {filepath}")
+    print(f"\n\n{Fore.GREEN}[+] Verificação Cloudflare finalizada!")
+    if ok_count > 0: print(f"{Fore.YELLOW}[*] Salvo em: {Fore.WHITE}{filepath}")
+    else: print(f"{Fore.RED}[-] Nenhum proxy passou pelo bloqueio.")
     input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
 
 def update_system():
@@ -378,7 +387,6 @@ def update_system():
                 else:
                     print(f"{Fore.CYAN}[+] Nova versão encontrada: {Fore.GREEN}v{new_version}")
                     
-                    # === DE VOLTA: EXIBINDO O CHANGELOG ===
                     changelog_match = re.search(r'CHANGELOG\s*=\s*\"\"\"(.*?)\"\"\"', new_code, re.DOTALL)
                     if changelog_match:
                         print(f"\n{Fore.YELLOW}=== O que há de novo ===")
@@ -410,8 +418,8 @@ def main():
     while True:
         show_banner()
         print(f"{Fore.WHITE}[1] {Fore.GREEN}Scanner IPTV (Testar lista no terminal)")
-        print(f"{Fore.WHITE}[2] {Fore.CYAN}Proxy Scanner (Gerar e testar originais)")
-        print(f"{Fore.WHITE}[3] {Fore.CYAN}Cloudflare Checker (Bypass em sites)")
+        print(f"{Fore.WHITE}[2] {Fore.CYAN}Proxy Scanner (Gerar IPs e Buscar Vivos)")
+        print(f"{Fore.WHITE}[3] {Fore.CYAN}Cloudflare Checker (Testar bypass em sites)")
         print(f"{Fore.WHITE}[4] {Fore.YELLOW}Instalar / Ligar Bot IPTV (Telegram)")
         print(f"{Fore.WHITE}[5] {Fore.YELLOW}Ligar Bot Proxy (Telegram)")
         
@@ -481,6 +489,9 @@ def main():
         elif choice == '7':
             print(f"\n{Fore.RED}Saindo... Até logo!")
             sys.exit()
+        else:
+            print(f"{Fore.RED}Opção inválida.")
+            time.sleep(1)
 
 if __name__ == "__main__":
     try: main()
