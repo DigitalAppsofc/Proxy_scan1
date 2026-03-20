@@ -16,14 +16,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 # Configurações da Ferramenta
-VERSION = "3.2 PRO"
+VERSION = "2.0"
 
 CHANGELOG = """
-- Remoção do curl_cffi para instalação limpa e imediata no Termux!
-- Letreiro reduzido para melhor visualização em telas menores!
+- Letreiro reduzido para melhor visualização em telas menores.
 - Novo Módulo: Scanner IPTV integrado no painel com suporte a múltiplos hosts simultâneos.
 - Gerenciador Automático para Bots de Telegram (Proxy e IPTV).
-- Mantido 100% das funções originais de Proxy e Cloudflare Checker.
+- Mantido 100% das funções originais, tutoriais, exemplos e Cloudflare Checker.
+- Sistema de Atualização Limpa: O atualizador agora usa o Instalador Oficial.
 """
 
 UPDATE_URL = "https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/proxy_scanner.py" 
@@ -43,19 +43,22 @@ def check_for_updates_silently():
 
 def show_banner():
     clear_screen()
-    banner = f"""{Fore.CYAN}{Style.BRIGHT}
-  ___  ____  ____  _  _     ___   ___   __   _  _ 
- (  _ \(_  _)(  _ \/ )( \   / __) / __) / _\ ( \( )
-  )___/ _)(_  )   /\ \/ /   \__ \( (__ /    \ )  ( 
- (__)  (____)(_)\_) \__/    (___/ \___)\_/\_/(_)\_)
-    
-    {Fore.WHITE}Versão {VERSION} - By {Fore.GREEN}@Digital_Apps
-    {Fore.YELLOW}Ferramentas IPTV & Proxies
-    """
-    print(banner)
+    from colorama import Fore, Style
+
+banner = f"""{Fore.CYAN}{Style.BRIGHT}
+╔══════════════════════════════╗
+║    FERRAMENTAS IPTV/PROXY ⚙️   ║
+╚══════════════════════════════╝
+
+{Fore.WHITE}Versão {VERSION} - By {Fore.GREEN}@Digital_Apps
+{Fore.YELLOW}Ferramentas IPTV & Proxies
+{Style.RESET_ALL}
+"""
+
+print(banner)
     
     if UPDATE_AVAILABLE:
-        print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 6.{Style.RESET_ALL}\n")
+        print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 7.{Style.RESET_ALL}\n")
 
 # ==========================================
 # 1. MÓDULO: SCANNER IPTV (MULTI-HOSTS)
@@ -314,6 +317,9 @@ def check_cloudflare_proxy(proxy_str, url, timeout_val):
 
 def run_cf_checker():
     print(f"\n{Fore.CYAN}--- Cloudflare Proxy Checker ---")
+    print(f"{Fore.WHITE}Este módulo testa se os seus proxies vivos conseguem burlar")
+    print(f"{Fore.WHITE}a proteção de um site específico (ex: um site de IPTV ou API).")
+    
     url = input(f"\n{Fore.YELLOW}Digite o site alvo (ex: https://site.com): {Fore.WHITE}").strip()
     if not url.startswith("http"): url = "https://" + url
         
@@ -332,28 +338,34 @@ def run_cf_checker():
                 with open(path, 'r', encoding='utf-8') as f:
                     proxies_list = [line.strip() for line in f if line.strip()]
                 file_found = True
-                print(f"{Fore.GREEN}[+] Carregados de {path}")
+                print(f"{Fore.GREEN}[+] {len(proxies_list)} proxies carregados de {path}")
                 break
         if not file_found:
-            print(f"{Fore.RED}[-] Arquivo não encontrado.")
+            print(f"{Fore.RED}[-] Arquivo não encontrado. Faça um Scan primeiro!")
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
             return
     else:
-        print(f"\n{Fore.YELLOW}Cole os proxies. Digite FIM para concluir:\n")
+        print(f"\n{Fore.YELLOW}Cole sua lista de proxies (IP:PORTA).")
+        print(f"{Fore.WHITE}Quando terminar de colar, digite a palavra {Fore.RED}FIM{Fore.WHITE} e dê Enter.\n")
         while True:
             linha = input()
             if linha.strip().upper() == "FIM": break
             if linha.strip(): proxies_list.append(linha.strip())
 
-    if not proxies_list: return
+    if not proxies_list: 
+        print(f"{Fore.RED}[-] Nenhuma proxy fornecida.")
+        return
 
-    threads_input = input(f"\nThreads {Fore.WHITE}[ENTER p/ 50]{Fore.CYAN}: ").strip()
+    threads_input = input(f"\nQuantidade de Threads {Fore.WHITE}[ENTER p/ 50]{Fore.CYAN}: ").strip()
     max_threads = int(threads_input) if threads_input.isdigit() else 50
+    
     filename_cf = input(f"Salvar aprovados como {Fore.WHITE}[ENTER p/ cf_ok.txt]{Fore.CYAN}: ").strip() or "cf_ok.txt"
-    filepath = f"/sdcard/Download/{filename_cf}" if os.path.exists('/data/data/com.termux') else filename_cf
+    filepath = filename_cf
+    if os.path.exists('/data/data/com.termux') and os.path.exists('/sdcard/Download') and os.access('/sdcard/Download', os.W_OK):
+        filepath = os.path.join('/sdcard/Download', filename_cf)
         
     ok_count, concluidos, total = 0, 0, len(proxies_list)
-    print(f"\n{Fore.YELLOW}[*] Testando {total} proxies...")
+    print(f"\n{Fore.YELLOW}[*] Testando {total} proxies contra {url}...\n")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = {executor.submit(check_cloudflare_proxy, p, url, 10): p for p in proxies_list}
@@ -363,16 +375,19 @@ def run_cf_checker():
             if status == "OK":
                 ok_count += 1
                 sys.stdout.write(f"\r\033[K{Fore.GREEN}[OK - PASSED] {proxy_clean}\n")
-                with open(filepath, 'a') as f: f.write(proxy_clean + "\n")
-            progresso = f"\r{Fore.CYAN}[{concluidos}/{total}] {Fore.WHITE}Aprovados no CF: {Fore.GREEN}{ok_count}\033[K"
+                with open(filepath, 'a', encoding='utf-8') as f: f.write(proxy_clean + "\n")
+            progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Aprovados no CF: {Fore.GREEN}{ok_count}\033[K"
             sys.stdout.write(progresso)
             sys.stdout.flush()
 
     print(f"\n\n{Fore.GREEN}[+] Verificação Cloudflare finalizada!")
-    if ok_count > 0: print(f"{Fore.YELLOW}[*] Salvo em: {Fore.WHITE}{filepath}")
-    else: print(f"{Fore.RED}[-] Nenhum proxy passou pelo bloqueio.")
-    input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
+    if ok_count > 0: print(f"{Fore.YELLOW}[*] {ok_count} Proxies aprovados salvos em: {Fore.WHITE}{filepath}")
+    else: print(f"{Fore.RED}[-] Nenhum proxy conseguiu passar pela proteção deste site.")
+    input(f"\n{Fore.WHITE}Pressione ENTER para voltar ao menu...")
 
+# ==========================================
+# 4. SISTEMA DE ATUALIZAÇÃO LIMPA 
+# ==========================================
 def update_system():
     print(f"\n{Fore.YELLOW}[*] Conectando ao servidor da Digital Apps...")
     try:
@@ -395,9 +410,22 @@ def update_system():
                     
                     confirm = input(f"\n{Fore.YELLOW}Deseja instalar a atualização agora? (S/N): {Fore.WHITE}").strip().upper()
                     if confirm == 'S':
-                        with open(__file__, 'w', encoding='utf-8') as f: f.write(new_code)
-                        print(f"\n{Fore.GREEN}[+] Atualização concluída com sucesso!")
-                        print(f"{Fore.WHITE}Por favor, abra a ferramenta novamente digitando: {Fore.CYAN}px")
+                        print(f"\n{Fore.YELLOW}[*] Limpando arquivos antigos para evitar conflitos...")
+                        
+                        # Remove os scripts, mas NÃO remove o banco de dados e os tokens!
+                        arquivos_remover = ['proxy_scanner.py', 'bot_proxy.py', 'main.py', 'bot_scan_iptv.zip']
+                        for arq in arquivos_remover:
+                            if os.path.exists(arq):
+                                try: os.remove(arq)
+                                except: pass
+                        
+                        print(f"{Fore.GREEN}[+] Baixando e iniciando o novo Instalador...")
+                        time.sleep(1)
+                        
+                        # Baixa e Roda o Instalador diretamente no Terminal
+                        cmd = "curl -sL https://raw.githubusercontent.com/DigitalAppsofc/Proxy_scan1/refs/heads/main/install.sh -o install.sh && bash install.sh"
+                        os.system(cmd)
+                        
                         sys.exit()
                     else:
                         print(f"{Fore.RED}[-] Atualização cancelada pelo usuário.")
@@ -422,44 +450,85 @@ def main():
         print(f"{Fore.WHITE}[3] {Fore.CYAN}Cloudflare Checker (Testar bypass em sites)")
         print(f"{Fore.WHITE}[4] {Fore.YELLOW}Instalar / Ligar Bot IPTV (Telegram)")
         print(f"{Fore.WHITE}[5] {Fore.YELLOW}Ligar Bot Proxy (Telegram)")
+        print(f"{Fore.WHITE}[6] {Fore.CYAN}Informações e Como Usar")
         
         upd_text = f"{Fore.GREEN}🟢 Atualizar Script Online" if UPDATE_AVAILABLE else f"{Fore.CYAN}Atualizar Script Online"
-        print(f"{Fore.WHITE}[6] {upd_text}")
-        print(f"{Fore.WHITE}[7] {Fore.RED}Sair\n")
+        print(f"{Fore.WHITE}[7] {upd_text}")
+        print(f"{Fore.WHITE}[8] {Fore.RED}Sair\n")
         
         choice = input(f"{Fore.YELLOW}Escolha uma opção: {Fore.WHITE}").strip()
         
-        if choice == '1': run_iptv_scanner()
+        if choice == '1': 
+            run_iptv_scanner()
+            
         elif choice == '2':
             print(f"\n{Fore.CYAN}--- Geração de IPs ---")
-            base_input = input("Base do IP (ex: 12.50) ou R para aleatório: ").strip()
+            print(f"{Fore.GREEN}Exemplos:")
+            print(f"{Fore.WHITE}12.50.107     {Fore.YELLOW}-> (Gera 256 IPs)")
+            print(f"{Fore.WHITE}209.197       {Fore.YELLOW}-> (Gera 65.536 IPs)")
+            print(f"{Fore.WHITE}Digite {Fore.YELLOW}R{Fore.WHITE} para gerar uma base aleatória válida.")
+            
+            base_input = input("\nBase do IP ou R: ").strip()
             if base_input.upper() == 'R':
                 base_ip = generate_random_base()
-                print(f"{Fore.GREEN}[+] Base gerada: {base_ip}")
-            else: base_ip = base_input
+                print(f"{Fore.GREEN}[+] Base gerada automaticamente: {base_ip}")
+            else:
+                base_ip = base_input
 
-            porta_input = input("Portas [ENTER p/ ALL]: ").strip().lower()
-            if porta_input == 'all' or porta_input == '': portas = ['80', '8080', '3128', '1080', '443', '8000', '9090']
-            else: portas = [p.strip() for p in porta_input.split(',')]
+            print(f"\n{Fore.CYAN}--- Portas para Teste ---")
+            print(f"Digite uma porta {Fore.WHITE}(ex: 8080){Fore.CYAN}, várias {Fore.WHITE}(80,8080){Fore.CYAN}")
+            print(f"Ou dê {Fore.YELLOW}ENTER (ALL){Fore.CYAN} para testar as portas proxy mais comuns.")
             
-            proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) [ENTER p/ 1]: ").strip() or '1'
-            threads_input = input(f"Threads [ENTER p/ 200]: ").strip()
+            porta_input = input("Portas: ").strip().lower()
+            if porta_input == 'all' or porta_input == '':
+                portas = ['80', '8080', '3128', '1080', '443', '8000', '9090']
+                print(f"{Fore.GREEN}[+] Portas selecionadas: {', '.join(portas)}")
+            else:
+                portas = [p.strip() for p in porta_input.split(',')]
+            
+            print(f"\n{Fore.CYAN}--- Protocolos e Desempenho ---")
+            proxy_type = input(f"Tipo (1=Todos, 2=HTTP, 3=SOCKS) {Fore.WHITE}[ENTER p/ Padrão: 1]{Fore.CYAN}: ").strip()
+            if not proxy_type: proxy_type = '1'
+            
+            threads_input = input(f"Quantidade de Threads (Velocidade) {Fore.WHITE}[ENTER p/ Padrão: 200]{Fore.CYAN}: ").strip()
             max_threads = int(threads_input) if threads_input.isdigit() else 200
-            timeout_input = input(f"Timeout (segundos) [ENTER p/ 5]: ").strip()
+            
+            timeout_input = input(f"Timeout em segundos {Fore.WHITE}[ENTER p/ Padrão: 5]{Fore.CYAN}: ").strip()
             timeout_val = int(timeout_input) if timeout_input.isdigit() else 5
             
-            filename = input(f"\nSalvar como [ENTER p/ vivos.txt]: ").strip() or "vivos.txt"
-            filepath = f"/sdcard/Download/{filename}" if os.path.exists('/data/data/com.termux') else filename
+            filename_input = input(f"\nNome do arquivo para salvar {Fore.WHITE}[ENTER p/ Padrão: vivos.txt]{Fore.CYAN}: ").strip()
+            filename = filename_input if filename_input else "vivos.txt"
+            
+            filepath = filename
+            print(f"\n{Fore.CYAN}--- Local de Salvamento ---")
+            if os.path.exists('/data/data/com.termux'):
+                download_dir = '/sdcard/Download'
+                if os.path.exists(download_dir) and os.access(download_dir, os.W_OK):
+                    filepath = os.path.join(download_dir, filename)
+                    print(f"{Fore.GREEN}[+] Sucesso: {Fore.WHITE}Será salvo na pasta de Downloads!")
+                else:
+                    print(f"{Fore.YELLOW}[!] Aviso: {Fore.WHITE}Salvando na pasta interna do sistema.")
+            else:
+                print(f"{Fore.GREEN}[+] Sucesso: {Fore.WHITE}Salvando na pasta atual (VPS/Linux).")
             
             ips_to_test = generate_ips(base_ip)
-            testes_totais = [(ip, port) for ip in ips_to_test for port in portas]
+            testes_totais = []
+            for ip in ips_to_test:
+                for port in portas: testes_totais.append((ip, port))
             
-            print(f"\n{Fore.YELLOW}[*] Iniciando {len(testes_totais)} testes com {max_threads} Threads...\n")
-            working_proxies, concluidos, encontrados = [], 0, 0
+            total = len(testes_totais)
+            print(f"\n{Fore.YELLOW}[*] Gerados {len(ips_to_test)} IPs válidos!")
+            print(f"{Fore.YELLOW}[*] Iniciando {total} testes com {max_threads} Threads...\n")
+            print(f"{Fore.RED}[!] DICA: Pressione CTRL+C a qualquer momento para cancelar e salvar.{Fore.WHITE}\n")
+            
+            working_proxies = []
+            concluidos = 0
+            encontrados = 0
             
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
                     futures = {executor.submit(test_proxy, ip, port, proxy_type, timeout_val): (ip, port) for ip, port in testes_totais}
+                    
                     for future in concurrent.futures.as_completed(futures):
                         ip, port = futures[future]
                         concluidos += 1
@@ -471,22 +540,55 @@ def main():
                                 sys.stdout.write(f"\r\033[K{Fore.GREEN}[+] LIVE: {proxy_str}\n")
                                 working_proxies.append(proxy_str)
                         except: pass
-                        if concluidos % 15 == 0 or concluidos == len(testes_totais):
-                            sys.stdout.write(f"\r{Fore.CYAN}[{concluidos}/{len(testes_totais)}] {Fore.WHITE}Encontrados: {Fore.GREEN}{encontrados}\033[K")
+                        
+                        if concluidos % 15 == 0 or concluidos == total:
+                            progresso = f"\r{Fore.CYAN}[Progresso: {concluidos}/{total}] {Fore.WHITE}Testando: {ip}:{port} | {Fore.GREEN}Encontrados: {encontrados}\033[K"
+                            sys.stdout.write(progresso)
                             sys.stdout.flush()
             except KeyboardInterrupt:
-                print(f"\n{Fore.RED}[!] Interrompido. Salvando...")
+                sys.stdout.write(f"\n\n{Fore.RED}[!] Scanner interrompido! Salvando encontrados...{Fore.WHITE}")
+                executor.shutdown(wait=False, cancel_futures=True) if sys.version_info >= (3, 9) else executor.shutdown(wait=False)
             
+            print("\n")
             if working_proxies:
                 with open(filepath, 'a', encoding='utf-8') as f:
                     for p in working_proxies: f.write(p + "\n")
-                print(f"\n{Fore.GREEN}[+] Salvo em: {filepath}")
+                print(f"{Fore.GREEN}[+] Busca concluída! {len(working_proxies)} proxies salvos com sucesso.")
+                print(f"{Fore.YELLOW}[*] Arquivo: {Fore.WHITE}{filepath}")
+            else:
+                print(f"{Fore.RED}[-] Nenhum proxy funcionando encontrado.")
+            
+            input(f"\n{Fore.WHITE}Pressione ENTER para voltar ao menu...")
+            
+        elif choice == '3': 
+            run_cf_checker()
+            
+        elif choice == '4': 
+            config_and_run_iptv_bot()
+            
+        elif choice == '5': 
+            config_and_run_proxy_bot()
+            
+        elif choice == '6':
+            show_banner()
+            print(f"{Fore.CYAN}--- Como funciona a ferramenta ---")
+            print(f"\n{Fore.YELLOW}1. Proxy Scanner:")
+            print(f"{Fore.WHITE}Ele varre blocos inteiros da internet procurando por 'portas abertas'.")
+            print(f"Quando acha uma, ele testa a conexão no Google. Se passar direto,")
+            print(f"significa que é um proxy público e anônimo. Ele mede o ping e a localização.")
+            
+            print(f"\n{Fore.YELLOW}2. Cloudflare Checker:")
+            print(f"{Fore.WHITE}Ter um proxy 'vivo' não garante que ele acesse sites protegidos.")
+            print(f"O Cloudflare (e outros firewalls) barram IPs com reputação ruim.")
+            print(f"Esta opção pega os seus proxies vivos e testa um por um contra o site")
+            print(f"que você quer acessar, filtrando apenas a 'Elite' que burla o bloqueio.")
+            print(f"\n{Fore.GREEN}Desenvolvido exclusivamente por Digital Apps©")
             input(f"\n{Fore.WHITE}Pressione ENTER para voltar...")
-        elif choice == '3': run_cf_checker()
-        elif choice == '4': config_and_run_iptv_bot()
-        elif choice == '5': config_and_run_proxy_bot()
-        elif choice == '6': update_system()
-        elif choice == '7':
+            
+        elif choice == '7': 
+            update_system()
+            
+        elif choice == '8':
             print(f"\n{Fore.RED}Saindo... Até logo!")
             sys.exit()
         else:
@@ -494,7 +596,8 @@ def main():
             time.sleep(1)
 
 if __name__ == "__main__":
-    try: main()
+    try:
+        main()
     except KeyboardInterrupt:
         print(f"\n{Fore.RED}Script fechado pelo usuário.")
         sys.exit()
