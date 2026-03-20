@@ -40,14 +40,9 @@ def check_for_updates_silently():
             UPDATE_AVAILABLE = True
     except:
         pass
-
+        
 def show_banner():
     clear_screen()
-    from colorama import Fore, Style
-
-def show_banner():
-    clear_screen()
-    
     banner = f"""{Fore.CYAN}{Style.BRIGHT}
 ╔══════════════════════════════╗
 ║    FERRAMENTAS IPTV/PROXY ⚙️   ║
