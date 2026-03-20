@@ -60,7 +60,6 @@ def show_banner():
     
     if UPDATE_AVAILABLE:
         print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 7.{Style.RESET_ALL}\n")
-        print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 7.{Style.RESET_ALL}\n")
 
 # ==========================================
 # 1. MÓDULO: SCANNER IPTV (MULTI-HOSTS)
