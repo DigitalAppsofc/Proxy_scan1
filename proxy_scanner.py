@@ -45,19 +45,21 @@ def show_banner():
     clear_screen()
     from colorama import Fore, Style
 
-banner = f"""{Fore.CYAN}{Style.BRIGHT}
+def show_banner():
+    clear_screen()
+    
+    banner = f"""{Fore.CYAN}{Style.BRIGHT}
 ╔══════════════════════════════╗
 ║    FERRAMENTAS IPTV/PROXY ⚙️   ║
 ╚══════════════════════════════╝
 
 {Fore.WHITE}Versão {VERSION} - By {Fore.GREEN}@Digital_Apps
 {Fore.YELLOW}Ferramentas IPTV & Proxies
-{Style.RESET_ALL}
-"""
-
-print(banner)
+{Style.RESET_ALL}"""
+    print(banner)
     
     if UPDATE_AVAILABLE:
+        print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 7.{Style.RESET_ALL}\n")
         print(f"    {Fore.GREEN}🟢 NOVA ATUALIZAÇÃO DISPONÍVEL! Vá no menu 7.{Style.RESET_ALL}\n")
 
 # ==========================================
